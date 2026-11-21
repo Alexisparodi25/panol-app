@@ -48,7 +48,27 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(24), dp(16), dp(24))
         }
         setContentView(ScrollView(this).apply { addView(root) })
-        home()
+        instalarRegistroDeErrores()
+        val crash = java.io.File(filesDir, "crash.txt")
+        if (crash.exists()) mostrarCrash(crash) else home()
+    }
+
+    /** Guarda el error si la app se cierra y lo muestra al volver a abrirla. */
+    private fun instalarRegistroDeErrores() {
+        val previo = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { th, ex ->
+            try {
+                java.io.File(filesDir, "crash.txt").writeText(android.util.Log.getStackTraceString(ex))
+            } catch (_: Exception) {}
+            previo?.uncaughtException(th, ex)
+        }
+    }
+
+    private fun mostrarCrash(f: java.io.File) {
+        screen("La app se cerró por un error")
+        text("Sacale una captura a esta pantalla y mandala:", 14f, Color.DKGRAY)
+        text(f.readText().take(2500), 11f, ROJO).setTextIsSelectable(true)
+        button("Entendido, continuar") { f.delete(); home() }
     }
 
     @Deprecated("Deprecated in Java")
@@ -136,12 +156,26 @@ class MainActivity : Activity() {
 
     private fun scan(mode: String) {
         scanMode = mode
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+            checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 77)
+            return
+        }
         IntentIntegrator(this)
             .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
             .setPrompt("Apuntá al código QR de la tablet")
             .setBeepEnabled(false)
             .setOrientationLocked(false)
             .initiateScan()
+    }
+
+    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        super.onRequestPermissionsResult(code, perms, res)
+        if (code == 77) {
+            if (res.isNotEmpty() && res[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) scan(scanMode)
+            else toast("Sin permiso de cámara no se puede escanear. Usá el ingreso manual.")
+        }
     }
 
     @Deprecated("Deprecated in Java")

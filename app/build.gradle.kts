@@ -8,7 +8,7 @@ android {
     defaultConfig {
         applicationId = "ar.edu.et35.panolapp"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 33
         versionCode = 1
         versionName = "1.0"
     }
