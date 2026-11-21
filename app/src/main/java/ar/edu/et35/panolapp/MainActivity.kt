@@ -50,7 +50,16 @@ class MainActivity : Activity() {
         setContentView(ScrollView(this).apply { addView(root) })
         instalarRegistroDeErrores()
         val crash = java.io.File(filesDir, "crash.txt")
-        if (crash.exists()) mostrarCrash(crash) else home()
+        val migas = java.io.File(filesDir, "escaneo.txt")
+        if (crash.exists()) mostrarCrash(crash)
+        else if (migas.exists()) {
+            migas.delete()
+            screen("Se cerró al escanear")
+            banner("La app se cerró al abrir la cámara y no quedó ningún error registrado.", ROJO)
+            text("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}) · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}", 13f)
+            text("Sacale una captura a esta pantalla y mandala.", 13f, Color.DKGRAY)
+            button("Continuar") { home() }
+        } else home()
     }
 
     /** Guarda el error si la app se cierra y lo muestra al volver a abrirla. */
@@ -146,7 +155,7 @@ class MainActivity : Activity() {
     // ===================== Pantallas =====================
     private fun home() {
         screen("Pañol-App", home = true)
-        text("Trazabilidad de tablets corporativas · ET N° 35", 14f, Color.DKGRAY)
+        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.1", 14f, Color.DKGRAY)
         button("📷  Escanear QR de tablet") { scan(MODE_FICHA) }
         button("➕  Alta de tablet (escanear QR)") { scan(MODE_ALTA) }
         button("⌨  Ingreso manual (QR dañado)", Color.DKGRAY) { manual() }
@@ -156,6 +165,7 @@ class MainActivity : Activity() {
 
     private fun scan(mode: String) {
         scanMode = mode
+        try { java.io.File(filesDir, "escaneo.txt").writeText("iniciado") } catch (_: Exception) {}
         if (android.os.Build.VERSION.SDK_INT >= 23 &&
             checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
@@ -180,6 +190,7 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        java.io.File(filesDir, "escaneo.txt").delete()
         val res = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (res == null) { super.onActivityResult(requestCode, resultCode, data); return }
         val raw = res.contents
