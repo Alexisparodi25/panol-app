@@ -155,9 +155,10 @@ class MainActivity : Activity() {
     // ===================== Pantallas =====================
     private fun home() {
         screen("Pañol-App", home = true)
-        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.2", 14f, Color.DKGRAY)
+        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.3", 14f, Color.DKGRAY)
         button("📷  Escanear QR de tablet") { scan(MODE_FICHA) }
         button("➕  Alta de tablet (escanear QR)") { scan(MODE_ALTA) }
+        button("✍  Alta manual (cargar datos y generar QR)", VERDE) { altaForm() }
         button("⌨  Ingreso manual (QR dañado)", Color.DKGRAY) { manual() }
         button("📋  Inventario", Color.DKGRAY) { inventario() }
         button("👤  Empleados y tareas", Color.DKGRAY) { empleados() }
@@ -253,6 +254,7 @@ class MainActivity : Activity() {
         text("Historial", 16f, bold = true)
         val h = db.historial(t.serie)
         if (h.isEmpty()) text("Sin movimientos", 13f, Color.GRAY) else h.forEach { text(it, 13f, Color.DKGRAY) }
+        button("Ver / guardar QR de esta tablet", Color.DKGRAY) { qrGenerado(t, nueva = false) }
         button("Volver", Color.DKGRAY) { home() }
     }
 
@@ -273,6 +275,7 @@ class MainActivity : Activity() {
 
     private fun altaForm(serieInicial: String = "") {
         screen("Alta manual de tablet")
+        text("Completá todos los datos. Al guardar se genera el QR para pegar en la tablet.", 13f, Color.DKGRAY)
         val sn = edit("Nº de serie").apply { setText(serieInicial) }
         val cpu = edit("Procesador (ej: Snapdragon 680)")
         val ram = edit("RAM (ej: 4 GB)")
@@ -286,23 +289,51 @@ class MainActivity : Activity() {
                 sto.text.toString().trim(), pan.text.toString().trim(), pue.text.toString().trim(),
                 con.text.toString().trim()
             )
-            guarded({ qrGenerado(t) }) { db.altaTablet(t) }
+            guarded({ qrGenerado(t) }) {
+                if (listOf(t.serie, t.cpu, t.ram, t.almacenamiento, t.pantalla, t.puertos, t.conectividad).any { it.isBlank() })
+                    throw RuleException("Completá todos los campos de la tablet.")
+                db.altaTablet(t)
+            }
         }
         button("Cancelar", Color.DKGRAY) { home() }
     }
 
     /** Generación lógica del QR para imprimir y pegar en el reverso. */
-    private fun qrGenerado(t: Tablet) {
-        screen("Tablet registrada ✔")
-        banner("Estado inicial: ${Estado.EN_PANOL}", VERDE)
+    private fun qrGenerado(t: Tablet, nueva: Boolean = true) {
+        screen(if (nueva) "Tablet registrada ✔" else "QR de la tablet")
+        if (nueva) banner("Estado inicial: ${Estado.EN_PANOL}", VERDE)
         text("QR para pegar en el reverso del equipo:", 14f)
         val bm = qrBitmap(t.toQrJson())
         root.addView(ImageView(this).apply { setImageBitmap(bm); setBackgroundColor(Color.WHITE) },
             LinearLayout.LayoutParams(dp(260), dp(260)).apply { gravity = Gravity.CENTER_HORIZONTAL })
         text(t.serie, 18f, bold = true).gravity = Gravity.CENTER
         text("Contenido: ${t.toQrJson()}", 11f, Color.GRAY)
-        button("Dar de alta otra") { scan(MODE_ALTA) }
-        button("Inicio", Color.DKGRAY) { home() }
+        button("Guardar QR en la galería", VERDE) { guardarQr(bm, t.serie) }
+        if (nueva) button("Dar de alta otra") { altaForm() }
+        button(if (nueva) "Inicio" else "Volver a la ficha", Color.DKGRAY) {
+            if (nueva) home() else fichaScreen(t)
+        }
+    }
+
+    /** Guarda el QR como imagen PNG en Imágenes/PanolApp para imprimirlo. */
+    private fun guardarQr(bm: Bitmap, serie: String) {
+        if (android.os.Build.VERSION.SDK_INT < 29) {
+            toast("Guardado en galería no disponible en esta versión de Android. Sacale una captura al QR.")
+            return
+        }
+        try {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "QR_$serie.png")
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PanolApp")
+            }
+            val uri = contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw java.io.IOException("sin destino")
+            contentResolver.openOutputStream(uri)?.use { bm.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            toast("QR guardado en Imágenes/PanolApp")
+        } catch (e: Exception) {
+            toast("No se pudo guardar: ${e.message}. Sacale una captura al QR.")
+        }
     }
 
     private fun qrBitmap(content: String): Bitmap {
