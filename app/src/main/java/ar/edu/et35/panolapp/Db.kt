@@ -203,6 +203,15 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, "panol.db", null, 1) {
         mov(t.serie, "REINGRESO", t.estado, Estado.EN_PANOL, null, null, obs.ifBlank { "Reparada" })
     }
 
+    /** Elimina una tablet (y su historial). No se permite si está prestada. */
+    fun eliminarTablet(serie: String) {
+        val t = getTablet(serie) ?: throw RuleException("Tablet inexistente.")
+        if (t.estado == Estado.USO_LOCAL || t.estado == Estado.USO_EXTERNO)
+            throw RuleException("No se puede eliminar una tablet que está en uso. Primero registrá su devolución.")
+        writableDatabase.delete("movimientos", "serie=?", arrayOf(t.serie))
+        writableDatabase.delete("tablets", "serie=?", arrayOf(t.serie))
+    }
+
     fun historial(serie: String): List<String> =
         readableDatabase.rawQuery(
             "SELECT fecha,tipo,estado_hasta,legajo,tarea,observacion FROM movimientos WHERE serie=? ORDER BY id DESC LIMIT 15",

@@ -155,7 +155,7 @@ class MainActivity : Activity() {
     // ===================== Pantallas =====================
     private fun home() {
         screen("Pañol-App", home = true)
-        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.3", 14f, Color.DKGRAY)
+        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.4", 14f, Color.DKGRAY)
         button("📷  Escanear QR de tablet") { scan(MODE_FICHA) }
         button("➕  Alta de tablet (escanear QR)") { scan(MODE_ALTA) }
         button("✍  Alta manual (cargar datos y generar QR)", VERDE) { altaForm() }
@@ -255,6 +255,14 @@ class MainActivity : Activity() {
         val h = db.historial(t.serie)
         if (h.isEmpty()) text("Sin movimientos", 13f, Color.GRAY) else h.forEach { text(it, 13f, Color.DKGRAY) }
         button("Ver / guardar QR de esta tablet", Color.DKGRAY) { qrGenerado(t, nueva = false) }
+        button("Eliminar tablet", ROJO) {
+            AlertDialog.Builder(this).setTitle("Eliminar tablet")
+                .setMessage("¿Eliminar la tablet ${t.serie} y todo su historial? No se puede deshacer.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Eliminar") { _, _ ->
+                    guarded({ toast("Tablet eliminada"); inventario() }) { db.eliminarTablet(t.serie) }
+                }.show()
+        }
         button("Volver", Color.DKGRAY) { home() }
     }
 
