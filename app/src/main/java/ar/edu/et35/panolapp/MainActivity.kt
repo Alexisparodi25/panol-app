@@ -155,7 +155,7 @@ class MainActivity : Activity() {
     // ===================== Pantallas =====================
     private fun home() {
         screen("Pañol-App", home = true)
-        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.1", 14f, Color.DKGRAY)
+        text("Trazabilidad de tablets corporativas · ET N° 35 · v1.2", 14f, Color.DKGRAY)
         button("📷  Escanear QR de tablet") { scan(MODE_FICHA) }
         button("➕  Alta de tablet (escanear QR)") { scan(MODE_ALTA) }
         button("⌨  Ingreso manual (QR dañado)", Color.DKGRAY) { manual() }
